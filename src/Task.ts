@@ -10,6 +10,9 @@ import { renderTaskLine } from './TaskLineRenderer';
 import type { TaskLineRenderDetails } from './TaskLineRenderer';
 import { DateFallback } from './DateFallback';
 import { compareByDate } from './lib/DateTools';
+import type { Reminder } from './Reminders/Reminder';
+import { replaceTaskWithTasks } from './File';
+import { isReminderSame } from './Reminders/Reminder';
 
 /**
  * When sorting, make sure low always comes after none. This way any tasks with low will be below any exiting
@@ -101,6 +104,7 @@ export class Task {
     public readonly taskLocation: TaskLocation;
 
     public readonly tags: string[];
+    public readonly reminder: Reminder | null; // TODO Move this to after doneDate??
 
     public readonly priority: Priority;
 
@@ -139,6 +143,7 @@ export class Task {
         recurrence,
         blockLink,
         tags,
+        reminder,
         originalMarkdown,
         scheduledDateIsInferred,
     }: {
@@ -156,6 +161,7 @@ export class Task {
         recurrence: Recurrence | null;
         blockLink: string;
         tags: string[] | [];
+        reminder: Reminder | null;
         originalMarkdown: string;
         scheduledDateIsInferred: boolean;
     }) {
@@ -166,6 +172,7 @@ export class Task {
         this.taskLocation = taskLocation;
 
         this.tags = tags;
+        this.reminder = reminder;
 
         this.priority = priority;
 
@@ -291,12 +298,20 @@ export class Task {
     }
 
     /**
-     * Toggles this task and returns the resulting tasks.
+     * Toggles this task and returns the resulting task(s).
+     *
+     * Use this method if you need to know which is the original (completed)
+     * task and which is the new recurrence.
+     *
+     * If the task is not recurring, it will return `[toggled]`.
      *
      * Toggling can result in more than one returned task in the case of
-     * recurrence. If it is a recurring task, the toggled task will be returned
-     * together with the next occurrence in the order `[next, toggled]`. If the
-     * task is not recurring, it will return `[toggled]`.
+     * recurrence. In this case, the toggled task will be returned
+     * together with the next occurrence in the order `[next, toggled]`.
+     *
+     * There is a possibility to use user set order `[next, toggled]`
+     * or `[toggled, next]` - {@link toggleWithRecurrenceInUsersOrder}.
+     *
      */
     public toggle(): Task[] {
         const newStatus = StatusRegistry.getInstance().getNextStatusOrCreate(this.status);
@@ -307,6 +322,7 @@ export class Task {
             startDate: Moment | null;
             scheduledDate: Moment | null;
             dueDate: Moment | null;
+            reminder: Reminder | null;
         } | null = null;
 
         if (newStatus.isCompleted()) {
@@ -354,6 +370,42 @@ export class Task {
         newTasks.push(toggledTask);
 
         return newTasks;
+    }
+
+    /**
+     * Toggles this task and returns the resulting task(s).
+     *
+     * Use this method if the updated task(s) are to be saved,
+     * as this honours the user setting to control the order
+     * the tasks should be saved in.
+     *
+     * If the task is not recurring, it will return `[toggled]`.
+     *
+     * Toggling can result in more than one returned task in the case of
+     * recurrence. In this case, the toggled task will be returned in
+     * user set order `[next, toggled]` or `[toggled, next]` depending
+     * on {@link Settings}.
+     *
+     * If there is no need to consider user settings call {@link toggle}.
+     *
+     */
+    public toggleWithRecurrenceInUsersOrder(): Task[] {
+        const newTasks = this.toggle();
+
+        const { recurrenceOnNextLine: recurrenceOnNextLine } = getSettings();
+        return recurrenceOnNextLine ? newTasks.reverse() : newTasks;
+    }
+
+    // toggle task status and update
+    // TODO Understand why this method exists.
+    // TODO Check that this method has tests.
+    public toggleUpdate() {
+        const newTasks = this.toggle();
+
+        replaceTaskWithTasks({
+            originalTask: this,
+            newTasks: newTasks,
+        });
     }
 
     public get urgency(): number {
@@ -491,6 +543,11 @@ export class Task {
                 return element === other.tags[index];
             })
         ) {
+            return false;
+        }
+
+        // compare reminders
+        if (!isReminderSame(this.reminder, other.reminder)) {
             return false;
         }
 

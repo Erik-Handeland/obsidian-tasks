@@ -2,7 +2,9 @@
  * @jest-environment jsdom
  */
 import moment from 'moment';
+import { parseMoment } from '../src/Reminders/Reminder';
 import { Recurrence } from '../src/Recurrence';
+import { TIME_FORMATS } from '../src/Config/Settings';
 import { RecurrenceBuilder } from './TestingTools/RecurrenceBuilder';
 
 jest.mock('obsidian');
@@ -16,6 +18,7 @@ describe('Recurrence', () => {
             startDate: null,
             scheduledDate: null,
             dueDate: null,
+            reminder: null,
         });
 
         // Act
@@ -26,6 +29,7 @@ describe('Recurrence', () => {
             startDate: null,
             scheduledDate: null,
             dueDate: null,
+            reminder: null,
         });
     });
 
@@ -36,6 +40,7 @@ describe('Recurrence', () => {
             startDate: null,
             scheduledDate: null,
             dueDate: moment('2022-01-31').startOf('day'),
+            reminder: null,
         });
 
         // Act
@@ -54,6 +59,7 @@ describe('Recurrence', () => {
             startDate: null,
             scheduledDate: null,
             dueDate: moment('2022-01-31').startOf('day'),
+            reminder: null,
         });
 
         // Act
@@ -72,6 +78,7 @@ describe('Recurrence', () => {
             startDate: null,
             scheduledDate: null,
             dueDate: moment('2023-12-31').startOf('day'),
+            reminder: null,
         });
 
         // Act
@@ -90,6 +97,7 @@ describe('Recurrence', () => {
             startDate: null,
             scheduledDate: null,
             dueDate: moment('2024-02-29').startOf('day'),
+            reminder: null,
         });
 
         // Act
@@ -108,6 +116,7 @@ describe('Recurrence', () => {
             startDate: null,
             scheduledDate: null,
             dueDate: moment('2020-03-31').startOf('day'),
+            reminder: null,
         });
 
         // Act
@@ -126,6 +135,7 @@ describe('Recurrence', () => {
             startDate: null,
             scheduledDate: null,
             dueDate: moment('2020-01-31').startOf('day'),
+            reminder: null,
         });
 
         // Act
@@ -148,6 +158,7 @@ describe('Recurrence - with invalid dates in tasks', () => {
             startDate: null,
             scheduledDate: null,
             dueDate: moment('2022-02-30').startOf('day'), // 30th February: invalid date
+            reminder: null,
         });
 
         // Assert
@@ -168,6 +179,7 @@ describe('Recurrence - with invalid dates in tasks', () => {
             startDate: null,
             scheduledDate: moment('2022-02-30').startOf('day'), // 30th February: invalid date
             dueDate: moment('2022-02-27').startOf('day'),
+            reminder: null,
         });
 
         // Act
@@ -230,5 +242,45 @@ describe('identicalTo', () => {
 
         expect(date1Recurrence?.identicalTo(date1Recurrence)).toBe(true);
         expect(date1Recurrence?.identicalTo(date2Recurrence)).toBe(false);
+    });
+
+    it('differing only in reminder', () => {
+        const date1Recurrence = new RecurrenceBuilder().reminders('2021-10-21').build();
+
+        const date2Recurrence = new RecurrenceBuilder().reminders('1998-03-13').build();
+
+        const nullRecurrence = new RecurrenceBuilder().reminders('').build();
+
+        expect(date1Recurrence?.identicalTo(date1Recurrence)).toBe(true);
+        expect(date1Recurrence?.identicalTo(date2Recurrence)).toBe(false);
+        expect(date1Recurrence?.identicalTo(nullRecurrence)).toBe(false);
+        expect(nullRecurrence?.identicalTo(date1Recurrence)).toBe(false);
+    });
+});
+
+describe('Recurrence - with reminders', () => {
+    it('creates a recurring instance with single 24h reminders', () => {
+        // Arrange
+        const originalReminder = parseMoment(moment('2021-06-20 13:00', TIME_FORMATS.twentyFourHour));
+        const originalReminderAsString = originalReminder.toString();
+        const recurrence = Recurrence.fromText({
+            recurrenceRuleText: 'every week',
+            startDate: null,
+            scheduledDate: null,
+            dueDate: null,
+            reminder: originalReminder,
+        });
+
+        // Act
+        const next = recurrence!.next();
+
+        // Assert
+        expect(
+            next!.reminder!.isSame(parseMoment(moment('2021-06-27 13:00', TIME_FORMATS.twentyFourHour))),
+        ).toStrictEqual(true);
+        expect(next!.reminder!.toString()).toStrictEqual('2021-06-27 13:00');
+
+        // Confirm that the original date has not been modified
+        expect(originalReminder.toString()).toStrictEqual(originalReminderAsString);
     });
 });

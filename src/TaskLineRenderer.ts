@@ -25,6 +25,7 @@ export const LayoutClasses: { [c in TaskLayoutComponent]: string } = {
     createdDate: 'task-created',
     scheduledDate: 'task-scheduled',
     doneDate: 'task-done',
+    reminders: 'task-reminders',
     recurrenceRule: 'task-recurring',
     blockLink: '',
 };
@@ -89,7 +90,7 @@ export async function renderTaskLine(
 
         // Should be re-rendered as enabled after update in file.
         checkbox.disabled = true;
-        const toggledTasks = task.toggle();
+        const toggledTasks = task.toggleWithRecurrenceInUsersOrder();
         replaceTaskWithTasks({
             originalTask: task,
             newTasks: toggledTasks,

@@ -60,7 +60,7 @@ describe('sorting by recurring', () => {
 
     it('parses sort by recurrence', () => {
         const field = new RecurringField();
-        expect(field.parseSortLine('sort by recurring')).not.toBeNull();
+        expect(field.createSorterFromLine('sort by recurring')).not.toBeNull();
     });
 
     it('sort by due', () => {
@@ -96,7 +96,7 @@ describe('grouping by recurring', () => {
         ['- [ ] a 🔁 every Sunday', ['Recurring']],
     ])('task "%s" should have groups: %s', (taskLine: string, groups: string[]) => {
         // Arrange
-        const grouper = new RecurringField().createGrouper().grouper;
+        const grouper = new RecurringField().createNormalGrouper().grouper;
 
         // Assert
         expect(grouper(fromLine({ line: taskLine }))).toEqual(groups);
